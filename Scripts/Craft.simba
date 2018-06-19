@@ -1,0 +1,38 @@
+program new;
+{$I RS-BankStander/BankCore.simba}
+
+var
+  HARD_LEATHER := DTMFromString('mwQAAAHic42RgYOgA4jogrgbiWiBuBeI+IJ4MxFOBuAGIPwDxOyD+AsQ/gfgfEDMwMjD8AlKfgPgPEJsbyEIE8WBlBsIAvwkQDAcAo2sNLQ==');
+  HARD_LEATHER_BODY := DTMFromString('m6wAAAHic42ZgYJjOxMDQDcQLoXgREM8C4slA3AvEPVA8H4hfANU/AOJ7QPwMiN8B8Sco/gjEr4D4CZQf5GsOJBmJwsoMxAPiTIRgJAAAi0kRtg==');
+
+begin
+  srl.CloseInterfacesWithEscape := True;
+
+  Banker.AddInstr(InsOpenBank         (BANK_EAST));
+  Banker.AddInstr(InsMouseEst         (Inventory.FSlots[2].ExpandFunc(5), 0.95));
+  Banker.AddInstr(InsPushCountItem    (HARD_LEATHER_BODY));
+  Banker.AddInstr(InsPopJEQ           (0, 1));
+  Banker.AddInstr(InsDepositItem      (HARD_LEATHER_BODY, True));
+  Banker.AddInstr(InsWithdrawItem     (HARD_LEATHER, WITHDRAW_ALL, 'Hard leather'));
+  Banker.AddInstr(InsMouseEst         (Inventory.FSlots[0].ExpandFunc(5), 0.95));
+  Banker.AddInstr(InsCloseBank        ());
+  Banker.AddInstr(InsWaitLeft         (100,500));
+
+  Banker.AddInstr(InsUse              (0));
+  Banker.AddInstr(InsMouseAhead       (2));
+  Banker.AddInstr(InsClickFirstItem   (HARD_LEATHER, mouse_Left, 0.1));
+  Banker.AddInstr(InsMouseEstRad      (Chatbox.GetMiddle, 30, 0.95));
+  Banker.AddInstr(InsClickChatButton  ('How many', 1));
+  Banker.AddInstr(InsAwaitCount       (HARD_LEATHER, __LT__, 10, 22000));
+  Banker.AddInstr(InsPopJEQ           (False, -7));
+  Banker.AddInstr(InsAwaitCount       (HARD_LEATHER, __LT__, 2, 15000));
+  Banker.AddInstr(InsPopJEQ           (False, -9));
+  Banker.AddInstr(InsMouseEstRad      (MainScreen.GetMiddle, 50, 0.95));
+  Banker.AddInstr(InsAwaitCount       (HARD_LEATHER, __EQ__, 0, 3000));
+  Banker.AddInstr(InsDiscardTop       ());
+
+  Banker.AddInstr(InsJMP             (0));
+  Banker.AddInstr(InsReturn          ());
+
+  Banker.Execute();
+end.

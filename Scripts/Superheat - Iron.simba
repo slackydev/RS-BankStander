@@ -8,34 +8,36 @@ var
 begin
   srl.CloseInterfacesWithEscape := True;
 
-  Banker.AddInstr(opOpenTab,       Argz(Int32(tabMagic)));
+  Banker.AddInstr(InsOpenTab        (tabMagic));
 
-  Banker.AddInstr(opMouseEstRad,   Argz(MainScreen.GetMiddle.X, MainScreen.GetMiddle.Y, 50, 0.8));
-  Banker.AddInstr(opOpenBank,      Argz(BANK_EAST));
-  Banker.AddInstr(opMouseAhead,    Argz(2));
-  Banker.AddInstr(opPushCountItem, Argz(IRON_BAR));
-  Banker.AddInstr(opPopJEQ,        Argz(0, 1));
-  Banker.AddInstr(opDepositItem,   Argz(IRON_BAR, DEPOSIT_ALL));
-  Banker.AddInstr(opWithdrawItem,  Argz(IRON_ORE, 10, 'Iron ore'));
-  Banker.AddInstr(opMouseEst,      Argz(Gametabs.UpperTabs.Middle.X, Gametabs.UpperTabs.Y1, Gametabs.UpperTabs.X2, Gametabs.UpperTabs.Y2, 1.0));
-  Banker.AddInstr(opCloseBank);
+  Banker.AddInstr(InsOpenBank       (BANK_EAST));
+  Banker.AddInstr(InsMouseAhead     (3));
+  Banker.AddInstr(InsPushCountItem  (IRON_BAR));
+  Banker.AddInstr(InsPopJEQ         (0, 1));
+  Banker.AddInstr(InsDepositItem    (IRON_BAR, True));
+  Banker.AddInstr(InsWithdrawItem   (IRON_ORE, 10, 'Iron ore'));
+  Banker.AddInstr(InsMouseEst       (Gametabs.UpperTabs, 1.0));
+  Banker.AddInstr(InsCloseBank      ());
 
-  Banker.AddInstr(opAwaitTab,      Argz(Int32(tabMagic), 5000));
-  Banker.AddInstr(opClickSpell,    Argz(Int32(CAST_SUPERHEAT_ITEM)));
-  Banker.AddInstr(opMouseAhead,    Argz(2));
-  Banker.AddInstr(opAwaitTab,      Argz(Int32(tabInventory), 5000));
-  Banker.AddInstr(opPushCountItem, Argz(IRON_ORE));
-  Banker.AddInstr(opClickFirstItem,Argz(IRON_ORE, mouse_Left, 0.1));
-  Banker.AddInstr(opMouseAhead,    Argz(-6));
-  Banker.AddInstr(opWait,          Argz(350));
-  Banker.AddInstr(opPopJGT,        Argz(1, -8));
+  Banker.AddInstr(InsAwaitTab       (tabMagic, 5000));
+  Banker.AddInstr(InsClickSpell     (CAST_SUPERHEAT_ITEM));
+  Banker.AddInstr(InsMouseAhead     (3));
+  Banker.AddInstr(InsAwaitTab       (tabInventory, 5000));
+  Banker.AddInstr(InsPushCountItem  (IRON_ORE));
+  Banker.AddInstr(InsClickFirstItem (IRON_ORE, mouse_Left, 0.1));
+  Banker.AddInstr(InsJEQ            (1, 1));
+  Banker.AddInstr(InsMouseAhead     (-6));
+  Banker.AddInstr(InsJGT            (1, 1));
+  Banker.AddInstr(InsMouseEstRad    (MainScreen.GetMiddle, 50, 0.95));
+  Banker.AddInstr(InsWait           (350));
+  Banker.AddInstr(InsPopJGT         (1, -11));
 
-  Banker.AddInstr(opPushIsUptext,  Argz('Low Level Alc'));
-  Banker.AddInstr(opPopJNE,        Argz(0, 1));
-  Banker.AddInstr(opOpenTab,       Argz(Int32(tabMagic)));
+  Banker.AddInstr(InsPushIsUptext   ('Low Level Alc'));
+  Banker.AddInstr(InsPopJNE         (0, 1));
+  Banker.AddInstr(InsOpenTab        (tabMagic));
 
-  Banker.AddInstr(opJMP,           Argz(1));
-  Banker.AddInstr(opReturn);
+  Banker.AddInstr(InsJMP             (1));
+  Banker.AddInstr(InsReturn          ());
 
   Banker.Execute();
 end.

@@ -1,0 +1,394 @@
+// basic operations:
+  function InsNone(): TInstruction;
+  begin
+    Result.Code := opNone;
+  end;
+
+  function InsMouseAhead(RelativePos: Int32): TInstruction;
+  begin
+    Result.Code := opMouseAhead;
+    Result.Argz := [RelativePos];
+  end;
+
+  function InsMouseEst(Box: TBox; Force: Double = 1.0): TInstruction;
+  begin
+    Result.Code := opMouseEst;
+    Result.Argz := [Box.x1,Box.y1,Box.x2,Box.y2, Force];
+  end;
+
+  function InsMouseEstRad(P: TPoint; Rad: Int32; Force: Double = 1.0): TInstruction;
+  begin
+    Result.Code := opMouseEstRad;
+    Result.Argz := [P.x,P.y, Rad, Force];
+  end;
+
+  function InsOpenTab(Tab: EGametab): TInstruction;
+  begin
+    Result.Code := opOpenTab;
+    Result.Argz := [Int32(Tab)];
+  end;
+
+  function InsClickChatButton(Query: String; ButtonID: Int32): TInstruction;
+  begin
+    Result.Code := opClickChatButton;
+    Result.Argz := [Query, ButtonID];
+  end;   
+
+  function InsClickBankButton(Button: EBankButton): TInstruction;
+  begin
+    Result.Code := opClickBankButton;
+    Result.Argz := [Int32(Button)];
+  end; 
+
+  function InsClickSpell(Spell: ESpellCast): TInstruction;
+  begin
+    Result.Code := opClickSpell;
+    Result.Argz := [Int32(Spell)];
+  end;
+
+  function InsClickInv(Slot: Int32; MouseButton:Int32=mouse_Left; ChanceOfForced:Double=0.1): TInstruction;
+  begin
+    Result.Code := opClickInv;
+    Result.Argz := [Slot, MouseButton, ChanceOfForced];
+  end;
+
+  function InsUse(Slot: Int32): TInstruction;
+  begin
+    Result.Code := opUse;
+    Result.Argz := [Slot];
+  end;
+
+  function InsUseItem(DTM: Int32): TInstruction;
+  begin
+    Result.Code := opUseItem;
+    Result.Argz := [DTM];
+  end;
+
+  function InsClickItem(DTM: Int32; MouseButton:Int32=mouse_Left; ChanceOfForced:Double=0.1): TInstruction;
+  begin
+    Result.Code := opClickItem;
+    Result.Argz := [DTM, MouseButton, ChanceOfForced];
+  end;
+
+  function InsClickFirstItem(DTM: Int32; MouseButton:Int32=mouse_Left; ChanceOfForced:Double=0.1): TInstruction;
+  begin
+    Result.Code := opClickFirstItem;
+    Result.Argz := [DTM, MouseButton, ChanceOfForced];
+  end;
+
+  function InsOpenBank(Direction: Int32): TInstruction;
+  begin
+    Result.Code := opOpenBank;
+    Result.Argz := [Direction];
+  end;
+
+  function InsCloseBank(): TInstruction;
+  begin
+    Result.Code := opCloseBank;
+    Result.Argz := [];
+  end;
+
+  function InsWithdrawIndex(Slot, Amount: Int32; Name: String = ''): TInstruction;
+  begin
+    Result.Code := opWithdrawIndex;
+    Result.Argz := [Slot, Amount, Name];
+  end;
+
+  function InsDepositIndex(Slot: Int32; DepositAll: Boolean): TInstruction;
+  begin
+    Result.Code := opDepositIndex;
+    Result.Argz := [Slot, DepositAll];
+  end;
+
+  function InsWithdrawItem(DTM, Amount: Int32; Name: String = ''): TInstruction;
+  begin
+    Result.Code := opWithdrawItem;
+    Result.Argz := [DTM, Amount, Name];
+  end;
+
+  function InsDepositItem(DTM: Int32; DepositAll: Boolean): TInstruction;
+  begin
+    Result.Code := opDepositItem;
+    Result.Argz := [DTM, DepositAll];
+  end;
+
+  function InsContextMenu(SelectOption: String): TInstruction;
+  begin
+    Result.Code := opContextMenu;
+    Result.Argz := [SelectOption];
+  end;
+
+  function InsAwaitTab(Tab: EGametab; WaitForHowLong: Int32): TInstruction;
+  begin
+    Result.Code := opAwaitTab;
+    Result.Argz := [Int32(Tab), WaitForHowLong];
+  end;
+
+  // pushes the boolean result to the stack
+  function InsAwaitCount(InvDTM: Int32; Cmp: TComparator; Count, WaitForHowLong: Int32): TInstruction;
+  begin
+    Result.Code := opAwaitCount;
+    Result.Argz := [InvDTM, Int32(Cmp), Count, WaitForHowLong];
+  end;
+
+  // pushes the boolean result to the stack
+  function InsAwaitItem(InvSlot: Int32; WaitForHowLong: Int32=5000): TInstruction;
+  begin
+    Result.Code := opAwaitItem;
+    Result.Argz := [InvSlot, WaitForHowLong];
+  end;
+
+  // pushes the boolean result to the stack
+  function InsAwaitNoItem(InvSlot: Int32; WaitForHowLong: Int32=5000): TInstruction;
+  begin
+    Result.Code := opAwaitNoItem;
+    Result.Argz := [InvSlot, WaitForHowLong];
+  end;
+
+  function InsGetSkillInfo(SkillID: Int32): TInstruction;
+  begin
+    Result.Code := opStoreSkillInfo;
+    Result.Argz := [SkillID];
+  end;
+
+  function InsBumpSkillXP(SkillID, XPIncreasement: Int32): TInstruction;
+  begin
+    Result.Code := opBumpSkillXP;
+    Result.Argz := [SkillID, XPIncreasement];
+  end;
+  
+  function InsIncIterations(Increment: Int32 = 1): TInstruction;
+  begin
+    Result.Code := opBumpSkillXP;
+    Result.Argz := [Increment];
+  end;
+
+// ---------------------------------------------------------------------------
+// Ops that mainly uses the stack
+
+  // some tasks push to the stack, if you dont care about the result, discard it
+  function InsDiscardTop(): TInstruction;
+  begin
+    Result.Code := opDiscardTop;
+    Result.Argz := [];
+  end;
+
+  // pushes the number of iterations the bot has done
+  function InsPushIterations(): TInstruction;
+  begin
+    Result.Code := opPushIterations;
+    Result.Argz := [];
+  end;
+
+  // pushes your current level to the stack
+  function InsPushLevel(SkillID: Int32): TInstruction;
+  begin
+    Result.Code := opPushLevel;
+    Result.Argz := [SkillID];
+  end;
+
+  // pushes a boolean to the stack - checks if you have the required level 
+  function InsPushHasLevel(SkillID, Level: Int32): TInstruction;
+  begin
+    Result.Code := opPushHasLevel;
+    Result.Argz := [SkillID, Level];
+  end;
+
+  // Checks if the current uptext = uptext, pushes boolean
+  function InsPushIsUptext(Uptext: String): TInstruction;
+  begin
+    Result.Code := opPushIsUptext;
+    Result.Argz := [Uptext];
+  end;
+
+  // pushes whatever to the stack
+  function InsPushValue(StaticValue: Variant): TInstruction;
+  begin
+    Result.Code := opPushValue;
+    Result.Argz := [StaticValue];
+  end;
+
+  // pushes the slot containing the DTM
+  function InsPushSlotOf(DTM: Int32; Nearest: Boolean = False): TInstruction;
+  begin
+    Result.Code := opPushSlotOf;
+    Result.Argz := [DTM, Nearest];
+  end;
+  
+  // Pushes the number of inventory items found with the given DTM (stacks counts as well)
+  function InsPushCountItem(DTM: Int32): TInstruction;
+  begin
+    Result.Code := opPushCountItem;
+    Result.Argz := [DTM];
+  end;
+
+  // Do we have the given item, pushes boolean
+  function InsPushHasItem(DTM: Int32): TInstruction;
+  begin
+    Result.Code := opPushHasItem;
+    Result.Argz := [DTM];
+  end;
+
+  // Do we have the given item in the bank, pushes boolean
+  function InsPushBankHasItem(DTM: Int32): TInstruction;
+  begin
+    Result.Code := opPushBankHasItem;
+    Result.Argz := [DTM];
+  end;
+
+  // pushes the slot containing the DTM
+  function InsPushBankSlotOf(DTM: Int32): TInstruction;
+  begin
+    Result.Code := opPushBankSlotOf;
+    Result.Argz := [DTM];
+  end;
+
+  // Pops the stack - Click the item that was on the stack 
+  function InsPopClickItem(MouseButton: Int32 = mouse_Left): TInstruction;
+  begin
+    Result.Code := opPopClickItem;
+    Result.Argz := [MouseButton];
+  end;
+
+  // Pops the stack - Withdraws the item that was on the stack 
+  function InsPopWithdraw(Amount: Int32; Uptext: String=''): TInstruction;
+  begin
+    Result.Code := opPopWithdraw;
+    Result.Argz := [Amount, UpText];
+  end;
+
+  // Pops the stack - Deposits the item that was on the stack 
+  function InsPopDeposit(DepositAll: Boolean): TInstruction;
+  begin
+    Result.Code := opPopDeposit;
+    Result.Argz := [DepositAll];
+  end;
+
+  // Pops the stack - Jumps to RelativeLoc if True
+  function InsPopJT(RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opPopJT;
+    Result.Argz := [RelativeLoc];
+  end;
+
+  // Pops the stack - Jumps to RelativeLoc if False
+  function InsPopJF(RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opPopJT;
+    Result.Argz := [RelativeLoc];
+  end;
+  
+  // Looks at the top of the stack - Jumps to RelativeLoc if LESS THAN
+  function InsJLT(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opJLT;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+
+  // Looks at the top of the stack - Jumps to RelativeLoc if GREATER THAN
+  function InsJGT(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opJGT;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+  
+  // Looks at the top of the stack - Jumps to RelativeLoc if EQUAL TO
+  function InsJEQ(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opJEQ;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+
+  // Looks at the top of the stack - Jumps to RelativeLoc if NOT EQUAL TO
+  function InsJNE(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opJNE;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+
+  // Pops the stack - Jumps to RelativeLoc if LESS THAN
+  function InsPopJLT(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opPopJLT;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+
+  // Pops the stack - Jumps to RelativeLoc if GREATER THAN
+  function InsPopJGT(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opPopJGT;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+  
+  // Pops the stack - Jumps to RelativeLoc if EQUAL TO
+  function InsPopJEQ(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opPopJEQ;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+
+  // Pops the stack - Jumps to RelativeLoc if LESS THAN
+  function InsPopJNE(Value: Variant; RelativeLoc: Int32): TInstruction;
+  begin
+    Result.Code := opPopJNE;
+    Result.Argz := [Value, RelativeLoc];
+  end;
+
+  // Pops the stack - Stop the script if True
+  function InsPopRetIf(): TInstruction;
+  begin
+    Result.Code := opPopRetIf;
+    Result.Argz := [];
+  end;
+
+  // Pops the stack - Stop the script if False
+  function InsPopRetIfn(): TInstruction;
+  begin
+    Result.Code := opPopRetIfn;
+    Result.Argz := [];
+  end;
+
+// ---------------------------------------------------------------------------
+// misc
+
+  // Waits the given amount of time
+  function InsWaitLeft(Left, Right: Int32): TInstruction;
+  begin
+    Result.Code := opWaitLeft;
+    Result.Argz := [Left, Right];
+  end;
+  
+  // Waits the given amount of time
+  function InsWait(Time: Int32): TInstruction;
+  begin
+    Result.Code := opWait;
+    Result.Argz := [Time];
+  end;
+  
+  // Wait 600 ms
+  function InsWaitTick(): TInstruction;
+  begin
+    Result.Code := opWaitTick;
+    Result.Argz := [];
+  end;
+  
+  // Jump to static location
+  function InsJMP(Location: Int32 = 0): TInstruction;
+  begin
+    Result.Code := opJMP;
+    Result.Argz := [Location];
+  end;
+
+  // Argz: Jumps to script starting point, instruction #0
+  function InsRestart(): TInstruction;
+  begin
+    Result.Code := opRestart;
+    Result.Argz := [];
+  end;
+  
+  // stops the script
+  function InsReturn(): TInstruction;
+  begin
+    Result.Code := opReturn;
+    Result.Argz := [];
+  end;

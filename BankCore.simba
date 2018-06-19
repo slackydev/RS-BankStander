@@ -8,47 +8,53 @@ const
   BANK_WEST  = 3;
 
 type
-  TArgz = array [0..15] of Variant;
+  TArgz = array of Variant;
 
   EOpCode = (
     opNone,
-    opMouseAhead,        // not implemented
-    opMouseEst,          // ..
+    opMouseAhead,        //
+    opMouseEst,          //
     opMouseEstRad,
 
-    opOpenTab,           // Argz: EGametab
-    opClickInv,          // Argz: slot, mouse button
-    opUseInv,            // not implemented
+    opOpenTab,           // EGametab
 
-    opClickChatButton,   // Argz: ButtonID, Mouse button
-    opClickBankButton,   // Argz: ButtonID
-    opClickSpell,        // Argz: SpellID
-    opClickItem,         // Argz: DTM, Mouse button
-    opClickFirstItem,    // Argz: DTM, Mouse button
+    opClickChatButton,   // ButtonID, Mouse button
+    opClickBankButton,   // ButtonID
+    opClickSpell,        // SpellID
+    opClickInv,          // slot, mouse button
+    opUse,
+    opUseItem,           // takes a dtm
 
-    opOpenBank,          // Argz: Direction
-    opCloseBank,         // Argz: None
-    opWithdrawIndex,     // Argz: Slot, Amount, Name
-    opDepositIndex,      // Argz: Slot, ALL?
-    opWithdrawItem,      // Argz: DTM, Amount, Name
-    opDepositItem,       // Argz: DTM, ALL?
+    opClickItem,         // DTM, Mouse button
+    opClickFirstItem,    // DTM, Mouse button
 
-    opContextMenu,       // Argz: String
+    opOpenBank,          // Direction
+    opCloseBank,         // None
+    opWithdrawIndex,     // Slot, Amount, Name
+    opDepositIndex,      // Slot, ALL?
+    opWithdrawItem,      // DTM, Amount, Name
+    opDepositItem,       // DTM, ALL?
 
-    opAwaitTab,          // Argz: Int32(Gametab)
-    opAwaitCount,        // Argz: DTM, Int32(comparator), Count, Time
-    opAwaitItem,         // Argz: Slot
-    opAwaitNoItem,       // Argz: Slot
+    opContextMenu,       // String
 
-    opWaitLeft,          // Argz: Min, Max: Int32
-    opWait,              // Argz: Avg Wait time: Int32
-    opWaitTick,          // Argz: None
+    opAwaitTab,          // Int32(Gametab)
+    opAwaitCount,        // DTM, Int32(comparator), Count, Time
+    opAwaitItem,         // Slot
+    opAwaitNoItem,       // Slot
+
+    opStoreSkillInfo,    // Skill ID
+    opBumpSkillXP,       // Skill ID, XP Amount
+    opIncIterations,
 
   // ops that uses the stack
     opDiscardTop,
 
+    opPushIterations,
+    opPushLevel,
+    opPushHasLevel,
     opPushIsUptext,
     opPushValue,
+    opPushSlotOf,
     opPushCountItem,
     opPushHasItem,
     opPushBankHasItem,
@@ -58,24 +64,27 @@ type
     opPopWithdraw,
     opPopDeposit,
 
-    opPopJT,
-    opPopJF,
+    opPopJT,             // Argz: Relative location
+    opPopJF,             // Argz: Relative location
 
-    opJLT,
-    opJGT,
-    opJEQ,
-    opJNE,
+    opJLT,               // Argz: Value, Relative location
+    opJGT,               // Argz: Value, Relative location
+    opJEQ,               // Argz: Value, Relative location
+    opJNE,               // Argz: Value, Relative location
 
-    opPopJLT,
-    opPopJGT,
-    opPopJEQ,
-    opPopJNE,
+    opPopJLT,            // Argz: Value, Relative location
+    opPopJGT,            // Argz: Value, Relative location
+    opPopJEQ,            // Argz: Value, Relative location
+    opPopJNE,            // Argz: Value, Relative location
 
     opPopRetIf,
     opPopRetIfn,
 
   // misc
-    opJMP,
+    opWaitLeft,          // Argz: Min, Max: Int32
+    opWait,              // Argz: Avg Wait time: Int32
+    opWaitTick,          // Argz: None
+    opJMP,               // Argz: Static location
     opRestart,
     opReturn
   );
@@ -89,7 +98,10 @@ type
 
   TBankBot = record
     Instructions: array of TInstruction;
+    Stack: TVarStack;
     State: Int32;
+    SkillInfo: array [0..22] of TSkillInfo;
+    Iterations: Int64;
   end;
 
 
@@ -97,8 +109,10 @@ var
   Banker: TBankBot;
 
 const
-  NO_ARGZ: TArgz = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+  NO_ARGZ: TArgz = [];
 
+
+{$I Instructions.simba}
 
 
 function TVarStack.Top(): Variant;
@@ -148,104 +162,137 @@ begin
 end;
 
 
+function TBankBot.AddInstr(Instruction: TInstruction): Int32;
+begin
+  Self.Instructions += Instruction;
+  Result := High(Self.Instructions);
+end;
 
-procedure TbankBot.AddInstr(OpCode: EOpCode; Argz:TArgz = NO_ARGZ);
+function TBankBot.AddInstr(OpCode: EOpCode; Argz:TArgz = NO_ARGZ): Int32; overload;
 begin
   Self.Instructions += TInstruction([OpCode, Argz]);
+  Result := High(Self.Instructions);
 end;
+
+
+function TBankBot.OpenBankDir(Dir: Int32): Boolean;
+var rect: TRectangle;
+begin
+  case Dir of
+    BANK_NORTH: rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point( 0,-4), 4);
+    BANK_EAST:  rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point( 4, 0), 4);
+    BANK_SOUTH: rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point( 0, 4), 4);
+    BANK_WEST:  rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point(-4, 0), 4);
+  end;
+  Result := BankScreen.OpenAt(srl.rowp(Mouse.GetPosition, rect.Expand(-3)));
+  if not Result then Result := Bankscreen.IsOpen(Random(3500, 4000))
+end;
+
+function TBankBot.AwaitInvCount(DTM: Int32; Cmp: TComparator; Count, Time: Int32): Boolean;
+var t: TCountDown;
+begin
+  t.Init(Time);
+  while (not t.IsFinished) and (not Result) do
+  begin
+    case CMP of
+      __LT__: Result := ((DTM >= 0) and (Inventory.Count(DTM) <  Count)) or ((DTM = -1) and (Inventory.Count() <  Count));
+      __GT__: Result := ((DTM >= 0) and (Inventory.Count(DTM) >  Count)) or ((DTM = -1) and (Inventory.Count() >  Count));
+      __EQ__: Result := ((DTM >= 0) and (Inventory.Count(DTM) =  Count)) or ((DTM = -1) and (Inventory.Count() =  Count));
+      __NE__: Result := ((DTM >= 0) and (Inventory.Count(DTM) <> Count)) or ((DTM = -1) and (Inventory.Count() <> Count));
+    end;
+    Wait(30,70);
+  end;
+end;
+
+function TBankBot.LocBetween(p: TPoint; qb: TBox; Length: Double = 1.0): TBox;
+var
+  r: Double;
+  q: TPoint;
+begin
+  r := SRL.SkewedRand(Length, 0, 1.1);
+  q := SRL.RandomPointEx(p, qb);
+  q := Point(Round(p.X+(q.X-p.X)*r), Round(p.Y+(q.Y-p.Y)*r));
+  Result := Box(
+    Round(q.x-(qb.width div 2)*r), Round(q.y-(qb.height div 2)*r),
+    Round(q.x+(qb.width div 2)*r), Round(q.y+(qb.height div 2)*r)
+  );
+end;
+
+procedure TBankBot.MouseEst(B: TBox; Length: Double=1.0);
+begin
+  Mouse.Move(LocBetween(Mouse.GetPosition, B, Length));
+end;
+
+procedure TBankBot.MouseEstRad(P: TPoint; Rad: Int32; Length: Double);
+begin
+  Mouse.Move(LocBetween(Mouse.GetPosition, Box(P, Rad, Rad), Length));
+end;
+
+procedure TBankBot.MouseAhead(pos: Int32);
+var
+  ins: TInstruction;
+  tmp: TIntArray;
+begin
+  Ins := Self.Instructions[Self.State+pos-1];
+
+  case Ins.Code of
+    opClickInv, opUse: MouseEst(Inventory.FSlots[Int32(Ins.Argz[0])]);
+    opClickChatButton: MouseEst(Chatbox.GetButtonIdBounds(Int32(Ins.Argz[0])));
+    opClickBankButton: MouseEst(BankScreen.FButtons[Int32(Ins.Argz[0])]);
+    opClickSpell:      MouseEst(Spells.FSlots[Int32(Ins.Argz[0])]);
+    opWithdrawIndex:   MouseEst(BankScreen.FSlots[Int32(Ins.Argz[0])]);
+    opDepositIndex:    MouseEst(Inventory.FSlots[Int32(Ins.Argz[0])]);
+    opWithdrawItem:    MouseEst(BankScreen.FSlots[BankScreen.FindItem(Ins.Argz[0])]);
+    opDepositItem, opClickItem, opUseItem:
+      if Length(tmp := Inventory.FindItem(Ins.Argz[0])) <> 0 then
+        MouseEst(Inventory.FSlots[tmp[0]]);
+  end;
+end;
+
+function TBankBot.ClickFirstItem(ItemDTM: Integer; Button: Int32; Forced: Boolean): Boolean;
+var
+  a: TIntArray;
+begin
+  a := Inventory.FindItem(ItemDTM);
+  if Length(a) = 0 then Exit(False);
+  Result := True;
+  a.SortFrom(Inventory.PointToSlot(Mouse.GetPosition));
+  Mouse.Click(Inventory.FSlots[a[0]], Button, Forced);
+end;
+
+function TBankBot.PushSlotOf(ItemDTM: Integer; Sorted: Boolean): Boolean;
+var
+  a: TIntArray;
+  c: Int32;
+begin
+  a := Inventory.FindItem(ItemDTM);
+  if Length(a) = 0 then Exit(False);
+  Result := True;
+  if Sorted then a.SortFrom(Inventory.PointToSlot(Mouse.GetPosition));
+  Stack.Push(a[0]);
+end;
+
+function TBankBot.PushCountItem(ItemDTM: Integer): Boolean;
+var
+  a: TIntArray;
+  c: Int32;
+begin
+  a := Inventory.FindItem(ItemDTM);
+  if Length(a) = 0 then Stack.Push(0);
+  if Length(a) = 1 then begin
+    c := srl.GetItemAmount(Inventory.FSlots[a[0]]);
+    if c = 0 then Stack.Push(1)
+    else          Stack.Push(c);
+  end else
+    Stack.Push(Length(a));
+end;
+
+
 
 procedure TBankBot.Execute();
 var
-  i: Int32;
-  ins: TInstruction;
-
-  function OpenBankDir(Dir: Int32): Boolean;
-  var rect: TRectangle;
-  begin
-    case Dir of
-      BANK_NORTH: rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point( 0,-4), 4);
-      BANK_EAST:  rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point( 4, 0), 4);
-      BANK_SOUTH: rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point( 0, 4), 4);
-      BANK_WEST:  rect := Minimap.StaticToMsRect(Minimap.GetMiddle + Point(-4, 0), 4);
-    end;
-    Result := BankScreen.OpenAt(srl.rowp(Mouse.GetPosition, rect.Expand(-3)));
-  end;
-
-  function AwaitInvCount(DTM: Int32; Cmp: TComparator; Count, Time: Int32): Boolean;
-  var t: TCountDown;
-  begin
-    t.Init(Time);
-    while (not t.IsFinished) and (not Result) do
-    begin
-      case CMP of
-        __LT__: Result := ((DTM >= 0) and (Inventory.Count(DTM) <  Count)) or ((DTM = -1) and (Inventory.Count() <  Count));
-        __GT__: Result := ((DTM >= 0) and (Inventory.Count(DTM) >  Count)) or ((DTM = -1) and (Inventory.Count() >  Count));
-        __EQ__: Result := ((DTM >= 0) and (Inventory.Count(DTM) =  Count)) or ((DTM = -1) and (Inventory.Count() =  Count));
-        __NE__: Result := ((DTM >= 0) and (Inventory.Count(DTM) <> Count)) or ((DTM = -1) and (Inventory.Count() <> Count));
-      end;
-      Wait(30,70);
-    end;
-  end;
-
-  function LocBetween(p: TPoint; qb: TBox; Length: Double = 1.0): TBox;
-  var
-    r: Double;
-    q: TPoint;
-  begin
-    r := SRL.SkewedRand(Length, 0, 1.1);
-    q := SRL.RandomPointEx(p, qb);
-    q := Point(Round(p.X+(q.X-p.X)*r), Round(p.Y+(q.Y-p.Y)*r));
-    Result := Box(
-      Round(q.x-(qb.width div 2)*r), Round(q.y-(qb.height div 2)*r),
-      Round(q.x+(qb.width div 2)*r), Round(q.y+(qb.height div 2)*r)
-    );
-  end;
-
-  procedure MouseEst(B: TBox; Length: Double=1.0);
-  begin
-    Mouse.Move(LocBetween(Mouse.GetPosition, B, Length));
-  end;
-
-  procedure MouseEstRad(P: TPoint; Rad: Int32; Length: Double);
-  begin
-    Mouse.Move(LocBetween(Mouse.GetPosition, Box(P, Rad, Rad), Length));
-  end;
-
-  procedure MouseAhead(pos: Int32);
-  var
-    ins: TInstruction;
-    tmp: TIntArray;
-  begin
-    Ins := Self.Instructions[Self.State+pos];
-
-    case Ins.Code of
-      opClickInv:        MouseEst(Inventory.FSlots[Int32(Ins.Argz[0])]);
-      opClickChatButton: MouseEst(Chatbox.GetButtonIdBounds(Int32(Ins.Argz[0])));
-      opClickBankButton: MouseEst(BankScreen.FButtons[Int32(Ins.Argz[0])]);
-      opClickSpell:      MouseEst(Spells.FSlots[Int32(Ins.Argz[0])]);
-      opWithdrawIndex:   MouseEst(BankScreen.FSlots[Int32(Ins.Argz[0])]);
-      opDepositIndex:    MouseEst(Inventory.FSlots[Int32(Ins.Argz[0])]);
-      opWithdrawItem:    MouseEst(BankScreen.FSlots[BankScreen.FindItem(Ins.Argz[0])]);
-      opDepositItem, opClickItem:
-        if Length(tmp := Inventory.FindItem(Ins.Argz[0])) <> 0 then
-          MouseEst(Inventory.FSlots[tmp[0]]);
-    end;
-  end;
-
-  function ClickFirstItem(ItemDTM: Integer; Button: Int32; Forced: Boolean): Boolean;
-  var
-    a: TIntArray;
-  begin
-    a := Inventory.FindItem(ItemDTM);
-    if Length(a) = 0 then Exit(False);
-    Result := True;
-    a.SortFrom(Inventory.PointToSlot(Mouse.GetPosition));
-    Mouse.Click(Inventory.FSlots[a[0]], Button, Forced);
-  end;
-
-var
+  Ins: TInstruction;
   CountDown: TCountDown;
-  Stack: TVarStack;
   tmp: Variant;
 begin
   WriteLn('Executing ...');
@@ -259,7 +306,7 @@ begin
     case Ins.Code of
       opMouseAhead: MouseAhead(Ins.Argz[0]);
       opMouseEst:   MouseEst(Box(Ins.Argz[0],Ins.Argz[1],Ins.Argz[2],Ins.Argz[3]),Ins.Argz[4]);
-      opMouseEstRad:MouseEstRad(Point(Ins.Argz[0],Ins.Argz[1]),Ins.Argz[4],Ins.Argz[4]);
+      opMouseEstRad:MouseEstRad(Point(Ins.Argz[0],Ins.Argz[1]),Ins.Argz[2],Ins.Argz[3]);
 
       opOpenTab:
         begin
@@ -275,6 +322,16 @@ begin
       opClickItem:
         begin
           Mouse.Click(Inventory.FSlots[Inventory.FindItem(Ins.Argz[0])[0]], Ins.Argz[1], Random() < Ins.Argz[2]);
+        end;
+
+      opUse:
+        begin
+          Inventory.Use(Ins.Argz[0]);
+        end;
+
+      opUseItem:
+        begin
+          Inventory.Use(Inventory.FindItem(Ins.Argz[0])[0]);
         end;
 
       opClickFirstItem:
@@ -339,15 +396,15 @@ begin
 
       opAwaitCount:
         begin
-          if not AwaitInvCount(Ins.Argz[0], TComparator(Int32(Ins.Argz[1])), Ins.Argz[2], Ins.Argz[3]) then
-            Break;
+          Stack.Push(AwaitInvCount(Ins.Argz[0], TComparator(Int32(Ins.Argz[1])), Ins.Argz[2], Ins.Argz[3]));
         end;
 
       opAwaitItem:
         begin
-          CountDown.Init(Max(4000,Ins.Argz[1]));
+          CountDown.Init(Max(3000,Ins.Argz[1]));
           while (not CountDown.IsFinished()) and (not Inventory.IsSlotUsed(Ins.Argz[0])) do
             Wait(40,70);
+          Stack.Push(Inventory.IsSlotUsed(Ins.Argz[0]));
         end;
 
       opAwaitNoItem:
@@ -355,6 +412,7 @@ begin
           CountDown.Init(Max(4000,Ins.Argz[1]));
           while (not CountDown.IsFinished()) and (Inventory.IsSlotUsed(Ins.Argz[0])) do
             Wait(40,70);
+          Stack.Push(not Inventory.IsSlotUsed(Ins.Argz[0]));
         end;
 
       opAwaitTab:
@@ -363,16 +421,34 @@ begin
             Gametabs.Open(EGametab(Int32(Ins.Argz[0])));
         end;
 
-      opWaitLeft: Wait(Ins.Argz[0], Ins.Argz[1], wdLeft);
-      opWait:     WaitEx(Ins.Argz[0], Ins.Argz[0]*0.33);
-      opWaitTick: Wait(600);
+      opStoreSkillInfo:
+        begin
+          Self.SkillInfo[Int32(Ins.Argz[0])] := Stats.GetSkillInfo(Int32(Ins.Argz[0]));
+        end;
+
+      opBumpSkillXP:
+        begin
+          with Self.SkillInfo[Int32(Ins.Argz[0])] do
+          begin
+            XP        += Int32(Ins.Argz[1]);
+            Level     := srl.GetLevelAtXP(XP);
+            Next      := srl.GetXPAtLevel(Level+1);
+            Remainder := Next - XP;
+          end;
+        end;
+
+      opIncIterations: Inc(Self.Iterations, Int32(Ins.Argz[0]));
 
     // uses stack
       opDiscardTop:      Stack.Pop();
 
+      opPushIterations:  Stack.Push(Self.Iterations);
+      opPushLevel:       Stack.Push(Self.SkillInfo[Int32(Ins.Argz[0])].Level);
+      opPushHasLevel:    Stack.Push(Self.SkillInfo[Int32(Ins.Argz[0])].Level >= Int32(Ins.Argz[1]));
       opPushIsUptext:    Stack.Push(MainScreen.IsUpText(Ins.Argz[0]));
       opPushValue:       Stack.Push(Ins.Argz[0]);
-      opPushCountItem:   Stack.Push(Inventory.Count(Ins.Argz[0]));
+      opPushSlotOf:      PushSlotOf(Ins.Argz[0], Ins.Argz[1]);
+      opPushCountItem:   PushCountItem(Ins.Argz[0]);
       opPushHasItem:     Stack.Push(Inventory.Count(Ins.Argz[0]) <> 0);
       opPushBankHasItem: Stack.Push(BankScreen.FindItem(Ins.Argz[0]) <> -1);
       opPushBankSlotOf:  Stack.Push(BankScreen.FindItem(Ins.Argz[0]));
@@ -381,7 +457,7 @@ begin
         begin
           tmp := Stack.Pop();
           if Stack.Push(tmp <> -1) then
-            Inventory.MouseSlot(tmp, Ins.Argz[1]);
+            Inventory.MouseSlot(tmp, Ins.Argz[0]);
         end;
 
       opPopWithdraw: Stack.Push(BankScreen.IsOpen(Random(5000,7000)) and BankScreen.Withdraw(Stack.Pop(), Ins.Argz[0], [String(Ins.Argz[1])]));
@@ -399,11 +475,14 @@ begin
       opPopJEQ: if Stack.Pop() =  Ins.Argz[0] then Self.State += Ins.Argz[1];
       opPopJNE: if Stack.Pop() <> Ins.Argz[0] then Self.State += Ins.Argz[1];
 
-
       opPopRetIf: if     Boolean(Stack.Pop()) then Break;
       opPopRetIfn:if not Boolean(Stack.Pop()) then Break;
 
     // finally
+      opWaitLeft: Wait(Ins.Argz[0], Ins.Argz[1], wdLeft);
+      opWait:     WaitEx(Ins.Argz[0], Ins.Argz[0]*0.33);
+      opWaitTick: Wait(600);
+
       opJMP: Self.State := Ins.Argz[0];
       opRestart: Self.State := 0;
       opReturn: Break;
